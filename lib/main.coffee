@@ -24,7 +24,15 @@ module.exports =
       type: 'string'
       default: ""
     cmdArgs:
-      description: 'Add specified ctag command args like: --exclude=lib --exclude=*.js'
+      description: 'The ctags option, you should always use the "--fields=+KSn" option if you want to customize options'
+      type: 'string'
+      default: "-u -R --fields=+KSn --excmd=p"
+    tagsPath:
+      description: 'The tags path'
+      type: 'string'
+      default: ".tags"
+    ctagsConfigPath:
+      description: 'The .ctags config path, the option --options is added if the path is given.'
       type: 'string'
       default: ""
     extraTagFiles:

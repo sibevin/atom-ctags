@@ -28,28 +28,37 @@ getProjectPath = (codepath) ->
     return dirPath if dirPath is codepath or directory.contains(codepath)
 
 module.exports = (codepath, isAppend, cmdArgs, callback)->
-  tags = []
   command = atom.config.get("atom-ctags.cmd").trim()
   if command == ""
     command = path.resolve(__dirname, '..', 'vendor', "ctags-#{process.platform}")
-  ctagsFile = require.resolve('./.ctags')
-
-  projectPath = getProjectPath(codepath)
-  projectCtagsFile = path.join(projectPath, ".ctags")
-  if fs.existsSync(projectCtagsFile)
-    ctagsFile = projectCtagsFile
-
-  tagsPath = path.join(projectPath, ".tags")
-  if isAppend
-    genPath = path.join(projectPath, ".tags1")
-  else
-    genPath = tagsPath
 
   args = []
   args.push cmdArgs... if cmdArgs
 
-  args.push("--options=#{ctagsFile}", '--fields=+KSn', '--excmd=p')
-  args.push('-u', '-R', '-f', genPath, codepath)
+  projectPath = getProjectPath(codepath)
+
+  ctagsConfigRelativePath = atom.config.get("atom-ctags.ctagsConfigPath")
+  if ctagsConfigRelativePath
+    ctagsConfigPath = path.join(projectPath, ctagsConfigRelativePath)
+    args.push("--options=#{ctagsConfigPath}") if fs.existsSync(ctagsConfigPath)
+
+  tagsRelativePath = atom.config.get("atom-ctags.tagsPath").trim()
+  tagsPath = path.join(projectPath, tagsRelativePath)
+  tagsFolderPath = path.dirname(tagsPath)
+  if !fs.existsSync(tagsFolderPath) || !fs.lstatSync(tagsFolderPath).isDirectory()
+    console.log "[atom-ctags:tagGenerator] The folder #{tagsFolderPath} is not found, create it recursively."
+    tagsFolderPath.split('/').forEach (dir, index, splits) ->
+      parent = splits.slice(0, index).join('/')
+      dirPath = path.resolve(parent, dir)
+      unless fs.existsSync(dirPath)
+        fs.mkdirSync(dirPath)
+  if isAppend
+    genPath = path.join(projectPath, tagsRelativePath + ".tmp")
+  else
+    genPath = tagsPath
+  args.push('-f', genPath)
+
+  args.push(codepath)
 
   stderr = (data)->
     console.error("atom-ctags: command error, " + data, genPath)
@@ -59,11 +68,14 @@ module.exports = (codepath, isAppend, cmdArgs, callback)->
 
     if isAppend
       if process.platform in 'win32'
-        simpleExec "type '#{tagsPath}' | findstr /V /C:'#{codepath}' > '#{tagsPath}2' & ren '#{tagsPath}2' '#{tagsPath}' & more +6 '#{genPath}' >> '#{tagsPath}'"
+        simpleExec "type '#{tagsPath}' | findstr /V /C:'#{codepath}' > '#{tagsPath}.new' & ren '#{tagsPath}.new' '#{tagsPath}' & more +6 '#{genPath}' >> '#{tagsPath}'"
       else
-        simpleExec "grep -v '#{codepath}' '#{tagsPath}' > '#{tagsPath}2'; mv '#{tagsPath}2' '#{tagsPath}'; tail -n +7 '#{genPath}' >> '#{tagsPath}'"
+        simpleExec "grep -v '#{codepath}' '#{tagsPath}' > '#{tagsPath}.new'; mv '#{tagsPath}.new' '#{tagsPath}'; tail -n +7 '#{genPath}' >> '#{tagsPath}'"
 
     callback(genPath)
+
+  console.log('command', command)
+  console.log('args', args)
 
   childProcess = new BufferedProcess({command, args, stderr, exit})
 

@@ -5,7 +5,8 @@ fs = require "fs"
 path = require "path"
 
 getTagsFile = (directoryPath) ->
-  tagsFile = path.join(directoryPath, ".tags")
+  tagsRelativePath = atom.config.get("atom-ctags.tagsPath").trim()
+  tagsFile = path.join(directoryPath, tagsRelativePath)
   return tagsFile if fs.existsSync(tagsFile)
 
 matchOpt = {matchBase: true}
